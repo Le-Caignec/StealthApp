@@ -1,7 +1,6 @@
 import fs from 'node:fs/promises';
 import figlet from 'figlet';
 import { ethers } from 'ethers';
-import { IExecDataProtectorDeserializer } from '@iexec/dataprotector-deserializer';
 
 const main = async () => {
   const { IEXEC_OUT } = process.env;
@@ -10,23 +9,8 @@ const main = async () => {
   let tx = 'N/A';
 
   try {
-    let messages = [];
     let targetAddress; //TODO change this to your target address
-
-    // try {
-    //   const deserializer = new IExecDataProtectorDeserializer();
-    //   // The protected data mock created for the purpose of this Hello World journey
-    //   // contains an object with a key "secretText" which is a string
-    //   targetAddress =
-    //     (await deserializer.getValue("stealthAddress", "string")) ||
-    //     "0x5bD9D0F6c6fc3Da14B98BBC4Fca44EA0000Ba5EC";
-    //   console.log('Found a protected data');
-    //   console.log('Target address:', targetAddress);
-    //   messages.push(targetAddress);
-    // } catch (e) {
-    //   console.log('It seems there is an issue with your protected data:', e);
-    //   throw new Error('Failed to get target address from protected data');
-    // }
+    let lenderAddress;
 
     //------------ Requester Secret Handling ------------
     //IEXEC_REQUESTER_SECRET_1 => Private Key
@@ -45,6 +29,7 @@ const main = async () => {
         /./g,
         "*"
       );
+      lenderAddress = IEXEC_REQUESTER_SECRET_1;
       console.log(
         `Got requester secret PRIVATE KEY (${redactedRequesterSecret})!`
       );
@@ -83,7 +68,7 @@ const main = async () => {
         "*"
       );
       targetAddress = IEXEC_REQUESTER_SECRET_4;
-      console.log(`Got TARGET ADDRESS (${targetAddress})!`);
+      console.log(`Got TARGET ADDRESS (${redactedRequesterSecret})!`);
     } else {
       console.log(`Requester secret TARGET ADDRESS is not set`);
       throw new Error("Target address is required");
@@ -105,7 +90,7 @@ const main = async () => {
     );
 
     // Create wallet from private key
-    const wallet = new ethers.Wallet(IEXEC_REQUESTER_SECRET_1, provider);
+    const wallet = new ethers.Wallet(lenderAddress, provider);
     console.log('Wallet address:', wallet.address);
 
     // Validate target address

@@ -7,7 +7,6 @@ const main = async () => {
   const { IEXEC_OUT } = process.env;
 
   let computedJsonObj = {};
-  let tx = 'N/A';
 
   try {
     let lenderPrivateKey; // App Secret
@@ -20,30 +19,28 @@ const main = async () => {
       const deserializer = new IExecDataProtectorDeserializer();
       // The protected data mock created for the purpose of this Hello World journey
       // contains an object with a key "secretText" which is a string
-      targetAddress = await deserializer.getValue("targetAddress", "string")
+      lenderPrivateKey = await deserializer.getValue("lenderPrivateKey", "string")
       console.log('Found a protected data');
-      console.log('Target address:', targetAddress);
+      const redactedProtectedDataValue = lenderPrivateKey.replace(
+        /./g,
+        "*"
+      );
+      console.log(
+        `Got ProtectedData Value (${redactedProtectedDataValue})!`
+      );
     } catch (e) {
       console.log('It seems there is an issue with your protected data:', e);
-      throw new Error('Failed to get target address from protected data');
-    }
-
-    //------------------APP Secret Handling ------------------
-    const { IEXEC_APP_DEVELOPER_SECRET } = process.env;
-    if (IEXEC_APP_DEVELOPER_SECRET) {
-      const redactedAppSecret = IEXEC_APP_DEVELOPER_SECRET.replace(/./g, '*');
-      lenderPrivateKey = IEXEC_APP_DEVELOPER_SECRET;
-      console.log(`Got an app secret (${redactedAppSecret})!`);
-    } else {
-      console.log(`App secret is not set`);
+      throw new Error('Failed to get lender private key from protected data');
     }
 
     //------------ Requester Secret Handling ------------
     //IEXEC_REQUESTER_SECRET_1 => Total Amount
     //IEXEC_REQUESTER_SECRET_2 => RPC URL
+    //IEXEC_REQUESTER_SECRET_3 => Target Address
     const {
       IEXEC_REQUESTER_SECRET_1,
       IEXEC_REQUESTER_SECRET_2,
+      IEXEC_REQUESTER_SECRET_3
     } = process.env;
 
     if (IEXEC_REQUESTER_SECRET_1) {
@@ -72,6 +69,18 @@ const main = async () => {
       throw new Error("RPC URL is required");
     }
 
+    if (IEXEC_REQUESTER_SECRET_3) {
+      const redactedRequesterSecret = IEXEC_REQUESTER_SECRET_3.replace(
+        /./g,
+        "*"
+      );
+      targetAddress = IEXEC_REQUESTER_SECRET_3;
+      console.log(`Got requester secret TARGET ADDRESS (${redactedRequesterSecret})!`);
+    } else {
+      console.log(`Requester secret TARGET ADDRESS is not set`);
+      throw new Error("Target address is required");
+    }
+
     //------------ Stealth App Logic ------------
     console.log("Starting stealth transfer...");
     
@@ -89,7 +98,6 @@ const main = async () => {
 
     // Create wallet from private key
     const wallet = new ethers.Wallet(lenderPrivateKey, provider);
-    console.log('Wallet address:', wallet.address);
 
     // Validate target address
     if (!ethers.isAddress(targetAddress)) {
@@ -98,14 +106,11 @@ const main = async () => {
 
     // Parse amount (assuming it's in ETH)
     const parseAmount = ethers.parseEther(amount);
-    console.log('Transfer amount:', ethers.formatEther(parseAmount), 'ETH');
 
     // Check wallet balance
     const balance = await provider.getBalance(wallet.address);
-    console.log('Wallet balance:', ethers.formatEther(balance), 'ETH');
-
     if (balance < parseAmount) {
-      throw new Error(`Insufficient balance. Required: ${ethers.formatEther(parseAmount)} ETH, Available: ${ethers.formatEther(balance)} ETH`);
+      throw new Error(`Insufficient balance.`);
     }
 
     // Create transaction (ethers will handle gas estimation automatically)
@@ -126,16 +131,13 @@ const main = async () => {
     
     if (receipt.status === 1) {
       console.log('Transaction confirmed!');
-      console.log('Block number:', receipt.blockNumber);
-      console.log('Gas used:', receipt.gasUsed.toString());
-      tx = txResponse.hash;
     } else {
       throw new Error('Transaction failed');
     }
 
     // Transform input text into an ASCII Art text
     const asciiArtText = figlet.textSync(
-      `Transfer successful, ${tx}`
+      `Transfer successful`
     );
 
     //------------- Write the result to the output file ------------
@@ -145,9 +147,7 @@ const main = async () => {
     // Build the "computed.json" object
     computedJsonObj = {
       'deterministic-output-path': `${IEXEC_OUT}/result.txt`,
-      'transaction-hash': tx,
-      'block-number': receipt.blockNumber,
-      'gas-used': receipt.gasUsed.toString()
+      'transaction-hash': txResponse.hash,
     };
   } catch (e) {
     // Handle errors

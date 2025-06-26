@@ -9,19 +9,36 @@ const main = async () => {
   let tx = 'N/A';
 
   try {
-    let targetAddress; //TODO change this to your target address
-    let lenderAddress;
+    let lenderAddress; // App Secret
+    let targetAddress; // App Secret
+    let amount; // Requester Secret
+    let rpcUrl; // Requester Secret
+
+    //------------------APP Secret Handling ------------------
+    const { IEXEC_APP_DEVELOPER_SECRET } = process.env;
+    if (IEXEC_APP_DEVELOPER_SECRET) {
+      const redactedAppSecret = IEXEC_APP_DEVELOPER_SECRET.replace(/./g, '*');
+      const jsonSecret = JSON.parse(IEXEC_APP_DEVELOPER_SECRET);
+      targetAddress = jsonSecret.targetAddress;
+      if (!targetAddress) { 
+        throw new Error("Target address is required in the app secret");
+      }
+      lenderAddress = jsonSecret.lenderAddress;
+      if (!lenderAddress) {
+        throw new Error("Lender address is required in the app secret");
+      }
+      console.log("🚀 ~ main ~ IEXEC_APP_DEVELOPER_SECRET:", IEXEC_APP_DEVELOPER_SECRET)
+      console.log(`Got an app secret (${redactedAppSecret})!`);
+    } else {
+      console.log(`App secret is not set`);
+    }
 
     //------------ Requester Secret Handling ------------
-    //IEXEC_REQUESTER_SECRET_1 => Private Key
-    //IEXEC_REQUESTER_SECRET_2 => Total Amount
-    //IEXEC_REQUESTER_SECRET_3 => RPC URL
-    //IEXEC_REQUESTER_SECRET_4 => Target Address
+    //IEXEC_REQUESTER_SECRET_1 => Total Amount
+    //IEXEC_REQUESTER_SECRET_2 => RPC URL
     const {
       IEXEC_REQUESTER_SECRET_1,
       IEXEC_REQUESTER_SECRET_2,
-      IEXEC_REQUESTER_SECRET_3,
-      IEXEC_REQUESTER_SECRET_4,
     } = process.env;
 
     if (IEXEC_REQUESTER_SECRET_1) {
@@ -29,13 +46,13 @@ const main = async () => {
         /./g,
         "*"
       );
-      lenderAddress = IEXEC_REQUESTER_SECRET_1;
       console.log(
-        `Got requester secret PRIVATE KEY (${redactedRequesterSecret})!`
+        `Got requester secret TOTAL AMOUNT (${redactedRequesterSecret})!`
       );
+      amount = IEXEC_REQUESTER_SECRET_1;
     } else {
-      console.log(`Requester secret PRIVATE KEY is not set`);
-      throw new Error("Private key is required");
+      console.log(`Requester secret TOTAL AMOUNT is not set`);
+      throw new Error("Total amount is required");
     }
 
     if (IEXEC_REQUESTER_SECRET_2) {
@@ -43,42 +60,18 @@ const main = async () => {
         /./g,
         "*"
       );
-      console.log(
-        `Got requester secret TOTAL AMOUNT (${redactedRequesterSecret})!`
-      );
-    } else {
-      console.log(`Requester secret TOTAL AMOUNT is not set`);
-      throw new Error("Total amount is required");
-    }
-
-    if (IEXEC_REQUESTER_SECRET_3) {
-      const redactedRequesterSecret = IEXEC_REQUESTER_SECRET_3.replace(
-        /./g,
-        "*"
-      );
+      rpcUrl = IEXEC_REQUESTER_SECRET_2;
       console.log(`Got requester secret RPC URL (${redactedRequesterSecret})!`);
     } else {
       console.log(`Requester secret RPC URL is not set`);
       throw new Error("RPC URL is required");
     }
 
-    if (IEXEC_REQUESTER_SECRET_4) {
-      const redactedRequesterSecret = IEXEC_REQUESTER_SECRET_4.replace(
-        /./g,
-        "*"
-      );
-      targetAddress = IEXEC_REQUESTER_SECRET_4;
-      console.log(`Got TARGET ADDRESS (${redactedRequesterSecret})!`);
-    } else {
-      console.log(`Requester secret TARGET ADDRESS is not set`);
-      throw new Error("Target address is required");
-    }
-
     //------------ Stealth App Logic ------------
     console.log("Starting stealth transfer...");
     
     // Setup provider using the provided RPC URL
-    const provider = new ethers.JsonRpcProvider(IEXEC_REQUESTER_SECRET_3);
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
 
     // Get network information
     const network = await provider.getNetwork();
@@ -99,21 +92,21 @@ const main = async () => {
     }
 
     // Parse amount (assuming it's in ETH)
-    const amount = ethers.parseEther(IEXEC_REQUESTER_SECRET_2);
-    console.log('Transfer amount:', ethers.formatEther(amount), 'ETH');
+    const parseAmount = ethers.parseEther(amount);
+    console.log('Transfer amount:', ethers.formatEther(parseAmount), 'ETH');
 
     // Check wallet balance
     const balance = await provider.getBalance(wallet.address);
     console.log('Wallet balance:', ethers.formatEther(balance), 'ETH');
 
-    if (balance < amount) {
-      throw new Error(`Insufficient balance. Required: ${ethers.formatEther(amount)} ETH, Available: ${ethers.formatEther(balance)} ETH`);
+    if (balance < parseAmount) {
+      throw new Error(`Insufficient balance. Required: ${ethers.formatEther(parseAmount)} ETH, Available: ${ethers.formatEther(balance)} ETH`);
     }
 
     // Create transaction (ethers will handle gas estimation automatically)
     const transaction = {
       to: targetAddress,
-      value: amount
+      value: parseAmount
     };
 
     console.log('Sending transaction...');

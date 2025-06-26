@@ -11,70 +11,101 @@ const main = async () => {
 
   try {
     let messages = [];
-    let targetAddress = '';
+    let targetAddress; //TODO change this to your target address
 
-    try {
-      const deserializer = new IExecDataProtectorDeserializer();
-      // The protected data mock created for the purpose of this Hello World journey
-      // contains an object with a key "secretText" which is a string
-      targetAddress = await deserializer.getValue('stealthAddress', 'string');
-      console.log('Found a protected data');
-      console.log('Target address:', targetAddress);
-      messages.push(targetAddress);
-    } catch (e) {
-      console.log('It seems there is an issue with your protected data:', e);
-      throw new Error('Failed to get target address from protected data');
-    }
+    // try {
+    //   const deserializer = new IExecDataProtectorDeserializer();
+    //   // The protected data mock created for the purpose of this Hello World journey
+    //   // contains an object with a key "secretText" which is a string
+    //   targetAddress =
+    //     (await deserializer.getValue("stealthAddress", "string")) ||
+    //     "0x5bD9D0F6c6fc3Da14B98BBC4Fca44EA0000Ba5EC";
+    //   console.log('Found a protected data');
+    //   console.log('Target address:', targetAddress);
+    //   messages.push(targetAddress);
+    // } catch (e) {
+    //   console.log('It seems there is an issue with your protected data:', e);
+    //   throw new Error('Failed to get target address from protected data');
+    // }
 
-    
     //------------ Requester Secret Handling ------------
-    const { IEXEC_REQUESTER_SECRET_PRIVATE_KEY, IEXEC_REQUESTER_SECRET_TOTAL_AMOUNT, IEXEC_REQUESTER_SECRET_RPC_URL } = process.env;
-    
-    if (IEXEC_REQUESTER_SECRET_PRIVATE_KEY) {
-      const redactedRequesterSecret = IEXEC_REQUESTER_SECRET_PRIVATE_KEY.replace(
+    //IEXEC_REQUESTER_SECRET_1 => Private Key
+    //IEXEC_REQUESTER_SECRET_2 => Total Amount
+    //IEXEC_REQUESTER_SECRET_3 => RPC URL
+    //IEXEC_REQUESTER_SECRET_4 => Target Address
+    const {
+      IEXEC_REQUESTER_SECRET_1,
+      IEXEC_REQUESTER_SECRET_2,
+      IEXEC_REQUESTER_SECRET_3,
+      IEXEC_REQUESTER_SECRET_4,
+    } = process.env;
+
+    if (IEXEC_REQUESTER_SECRET_1) {
+      const redactedRequesterSecret = IEXEC_REQUESTER_SECRET_1.replace(
         /./g,
-        '*'
+        "*"
       );
-      console.log(`Got requester secret PRIVATE KEY (${redactedRequesterSecret})!`);
+      console.log(
+        `Got requester secret PRIVATE KEY (${redactedRequesterSecret})!`
+      );
     } else {
       console.log(`Requester secret PRIVATE KEY is not set`);
-      throw new Error('Private key is required');
+      throw new Error("Private key is required");
     }
 
-    if (IEXEC_REQUESTER_SECRET_TOTAL_AMOUNT) {
-      const redactedRequesterSecret = IEXEC_REQUESTER_SECRET_TOTAL_AMOUNT.replace(
+    if (IEXEC_REQUESTER_SECRET_2) {
+      const redactedRequesterSecret = IEXEC_REQUESTER_SECRET_2.replace(
         /./g,
-        '*'
+        "*"
       );
-      console.log(`Got requester secret TOTAL AMOUNT (${redactedRequesterSecret})!`);
+      console.log(
+        `Got requester secret TOTAL AMOUNT (${redactedRequesterSecret})!`
+      );
     } else {
       console.log(`Requester secret TOTAL AMOUNT is not set`);
-      throw new Error('Total amount is required');
+      throw new Error("Total amount is required");
     }
 
-    if (IEXEC_REQUESTER_SECRET_RPC_URL) {
-      const redactedRequesterSecret = IEXEC_REQUESTER_SECRET_RPC_URL.replace(
+    if (IEXEC_REQUESTER_SECRET_3) {
+      const redactedRequesterSecret = IEXEC_REQUESTER_SECRET_3.replace(
         /./g,
-        '*'
+        "*"
       );
       console.log(`Got requester secret RPC URL (${redactedRequesterSecret})!`);
     } else {
       console.log(`Requester secret RPC URL is not set`);
-      throw new Error('RPC URL is required');
+      throw new Error("RPC URL is required");
+    }
+
+    if (IEXEC_REQUESTER_SECRET_4) {
+      const redactedRequesterSecret = IEXEC_REQUESTER_SECRET_4.replace(
+        /./g,
+        "*"
+      );
+      targetAddress = IEXEC_REQUESTER_SECRET_4;
+      console.log(`Got TARGET ADDRESS (${targetAddress})!`);
+    } else {
+      console.log(`Requester secret TARGET ADDRESS is not set`);
+      throw new Error("Target address is required");
     }
 
     //------------ Stealth App Logic ------------
-    console.log('Starting stealth transfer...');
+    console.log("Starting stealth transfer...");
     
     // Setup provider using the provided RPC URL
-    const provider = new ethers.JsonRpcProvider(IEXEC_REQUESTER_SECRET_RPC_URL);
-    
+    const provider = new ethers.JsonRpcProvider(IEXEC_REQUESTER_SECRET_3);
+
     // Get network information
     const network = await provider.getNetwork();
-    console.log('Connected to network:', network.name, 'Chain ID:', network.chainId.toString());
-    
+    console.log(
+      "Connected to network:",
+      network.name,
+      "Chain ID:",
+      network.chainId.toString()
+    );
+
     // Create wallet from private key
-    const wallet = new ethers.Wallet(IEXEC_REQUESTER_SECRET_PRIVATE_KEY, provider);
+    const wallet = new ethers.Wallet(IEXEC_REQUESTER_SECRET_1, provider);
     console.log('Wallet address:', wallet.address);
 
     // Validate target address
@@ -83,7 +114,7 @@ const main = async () => {
     }
 
     // Parse amount (assuming it's in ETH)
-    const amount = ethers.parseEther(IEXEC_REQUESTER_SECRET_TOTAL_AMOUNT);
+    const amount = ethers.parseEther(IEXEC_REQUESTER_SECRET_2);
     console.log('Transfer amount:', ethers.formatEther(amount), 'ETH');
 
     // Check wallet balance

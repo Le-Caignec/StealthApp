@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import figlet from 'figlet';
 import { ethers } from 'ethers';
+import { IExecDataProtectorDeserializer } from '@iexec/dataprotector-deserializer';
 
 const main = async () => {
   const { IEXEC_OUT } = process.env;
@@ -15,34 +16,23 @@ const main = async () => {
     let rpcUrl; // Requester Secret
 
     //---------------- Deserialize Protected Data ----------------
-    // try {
-    //   const deserializer = new IExecDataProtectorDeserializer();
-    //   // The protected data mock created for the purpose of this Hello World journey
-    //   // contains an object with a key "secretText" which is a string
-    //   targetAddress = await deserializer.getValue("stealthAddress", "string")
-    //   console.log('Found a protected data');
-    //   console.log('Target address:', targetAddress);
-    //   messages.push(targetAddress);
-    // } catch (e) {
-    //   console.log('It seems there is an issue with your protected data:', e);
-    //   throw new Error('Failed to get target address from protected data');
-    // }
+    try {
+      const deserializer = new IExecDataProtectorDeserializer();
+      // The protected data mock created for the purpose of this Hello World journey
+      // contains an object with a key "secretText" which is a string
+      targetAddress = await deserializer.getValue("targetAddress", "string")
+      console.log('Found a protected data');
+      console.log('Target address:', targetAddress);
+    } catch (e) {
+      console.log('It seems there is an issue with your protected data:', e);
+      throw new Error('Failed to get target address from protected data');
+    }
 
     //------------------APP Secret Handling ------------------
     const { IEXEC_APP_DEVELOPER_SECRET } = process.env;
     if (IEXEC_APP_DEVELOPER_SECRET) {
       const redactedAppSecret = IEXEC_APP_DEVELOPER_SECRET.replace(/./g, '*');
-      const jsonSecret = JSON.parse(IEXEC_APP_DEVELOPER_SECRET);
-
-      targetAddress = jsonSecret.targetAddress;
-      if (!targetAddress) { 
-        throw new Error("Target address is required in the app secret");
-      }
-
-      lenderPrivateKey = jsonSecret.lenderPrivateKey;
-      if (!lenderPrivateKey) {
-        throw new Error("Lender private key is required in the app secret");
-      }
+      lenderPrivateKey = IEXEC_APP_DEVELOPER_SECRET;
       console.log(`Got an app secret (${redactedAppSecret})!`);
     } else {
       console.log(`App secret is not set`);

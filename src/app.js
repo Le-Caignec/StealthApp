@@ -18,47 +18,61 @@ const main = async () => {
     // ------------ Deserialize Protected Data ------------
     try {
       const deserializer = new IExecDataProtectorDeserializer();
-      lenderPrivateKey = await deserializer.getValue("lenderPrivateKey", "string");
-      console.log('Found a protected data');
+      lenderPrivateKey = await deserializer.getValue(
+        "lenderPrivateKey",
+        "string"
+      );
+      console.log("Found a protected data");
       const redacted = lenderPrivateKey.replace(/./g, "*");
       console.log(`Got ProtectedData Value (${redacted})!`);
     } catch (e) {
-      console.log('It seems there is an issue with your protected data:', e);
-      throw new Error('Failed to get lender private key from protected data');
+      console.log("It seems there is an issue with your protected data:", e);
+      throw new Error("Failed to get lender private key from protected data");
     }
 
-    // ------------ Requester Secret Handling ------------
+    // ------------ Requester Secrets ------------
     const {
       IEXEC_REQUESTER_SECRET_1,
       IEXEC_REQUESTER_SECRET_2,
       IEXEC_REQUESTER_SECRET_3,
-      IEXEC_REQUESTER_SECRET_4
+      IEXEC_REQUESTER_SECRET_4,
     } = process.env;
 
     if (IEXEC_REQUESTER_SECRET_1) {
       amount = IEXEC_REQUESTER_SECRET_1;
-      console.log(`Got requester secret TOTAL AMOUNT (${amount.replace(/./g, "*")})!`);
+      console.log(
+        `Got requester secret TOTAL AMOUNT (${amount.replace(/./g, "*")})!`
+      );
     } else {
       throw new Error("Total amount is required");
     }
 
     if (IEXEC_REQUESTER_SECRET_2) {
       rpcUrl = IEXEC_REQUESTER_SECRET_2;
-      console.log(`Got requester secret RPC URL (${rpcUrl.replace(/./g, "*")})!`);
+      console.log(
+        `Got requester secret RPC URL (${rpcUrl.replace(/./g, "*")})!`
+      );
     } else {
       throw new Error("RPC URL is required");
     }
 
     if (IEXEC_REQUESTER_SECRET_3) {
       targetAddress = IEXEC_REQUESTER_SECRET_3;
-      console.log(`Got requester secret TARGET ADDRESS (${targetAddress.replace(/./g, "*")})!`);
+      console.log(
+        `Got requester secret TARGET ADDRESS (${targetAddress.replace(
+          /./g,
+          "*"
+        )})!`
+      );
     } else {
       throw new Error("Target address is required");
     }
 
     if (IEXEC_REQUESTER_SECRET_4) {
       kolAddress = IEXEC_REQUESTER_SECRET_4;
-      console.log(`Got requester secret KOL ADDRESS (${kolAddress.replace(/./g, "*")})!`);
+      console.log(
+        `Got requester secret KOL ADDRESS (${kolAddress.replace(/./g, "*")})!`
+      );
     } else {
       throw new Error("KOL address is required");
     }
@@ -66,7 +80,12 @@ const main = async () => {
     // ------------ Blockchain Setup ------------
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     const network = await provider.getNetwork();
-    console.log("Connected to network:", network.name, "Chain ID:", network.chainId.toString());
+    console.log(
+      "Connected to network:",
+      network.name,
+      "Chain ID:",
+      network.chainId.toString()
+    );
 
     const wallet = new ethers.Wallet(lenderPrivateKey, provider);
 
@@ -82,44 +101,72 @@ const main = async () => {
     }
 
     // ------------ Escrow Check ------------
-    const escrowAddress = '0x007d13fF43733c2CD390e6Ae2BD6BC20c275EB42';
+    const escrowAddress = "0x007d13fF43733c2CD390e6Ae2BD6BC20c275EB42";
     const escrowAbi = [
-      "function getAvailableToInvest(address user) view returns (uint256)"
+      "function getAvailableToInvest(address user) view returns (uint256)",
+      "function markAsInvested(address user, uint256 amount) external",
     ];
-    const escrowContract = new ethers.Contract(escrowAddress, escrowAbi, provider);
+    const escrowContract = new ethers.Contract(
+      escrowAddress,
+      escrowAbi,
+      provider
+    );
 
     const available = await escrowContract.getAvailableToInvest(kolAddress);
-    console.log(`KOL available to invest: ${ethers.formatEther(available)} ETH`);
+    console.log(
+      `KOL available to invest: ${ethers.formatEther(available)} ETH`
+    );
 
     if (available < parseAmount) {
-      throw new Error(`KOL ${kolAddress} has insufficient investable funds: ${ethers.formatEther(available)} < ${ethers.formatEther(parseAmount)} ETH`);
+      throw new Error(
+        `KOL ${kolAddress} has insufficient investable funds: ${ethers.formatEther(
+          available
+        )} < ${ethers.formatEther(parseAmount)} ETH`
+      );
     }
 
     // ------------ Transaction ------------
     const transaction = {
       to: targetAddress,
-      value: parseAmount
+      value: parseAmount,
     };
 
-    console.log('Sending transaction...');
+    console.log("Sending transaction...");
     const txResponse = await wallet.sendTransaction(transaction);
-    console.log('Transaction sent:', txResponse.hash);
+    console.log("Transaction sent:", txResponse.hash);
 
-    console.log('Waiting for confirmation...');
+    console.log("Waiting for confirmation...");
     const receipt = await txResponse.wait();
 
     if (receipt.status === 1) {
-      console.log('Transaction confirmed!');
+      console.log("Transaction confirmed!");
+
+      // ------------ Mark as Invested ------------
+      const escrowWithSigner = escrowContract.connect(wallet);
+      try {
+        const investTx = await escrowWithSigner.markAsInvested(
+          kolAddress,
+          parseAmount
+        );
+        console.log(`Calling markAsInvested... Tx: ${investTx.hash}`);
+        await investTx.wait();
+        console.log("markAsInvested confirmed!");
+      } catch (e) {
+        console.warn(
+          "Warning: Transaction succeeded but markAsInvested failed:",
+          e.message
+        );
+      }
     } else {
-      throw new Error('Transaction failed');
+      throw new Error("Transaction failed");
     }
 
     const asciiArtText = figlet.textSync(`Transfer successful`);
     await fs.writeFile(`${IEXEC_OUT}/result.txt`, asciiArtText);
 
     computedJsonObj = {
-      'deterministic-output-path': `${IEXEC_OUT}/result.txt`,
-      'transaction-hash': txResponse.hash,
+      "deterministic-output-path": `${IEXEC_OUT}/result.txt`,
+      "transaction-hash": txResponse.hash,
     };
   } catch (e) {
     console.log('Error:', e.message);
